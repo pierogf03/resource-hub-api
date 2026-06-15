@@ -11,6 +11,11 @@ from app.models.resource_assignment import ResourceAssignment, ResourceAssignmen
 from app.models.user import AppUser
 from app.repositories.import_batch_repository import ImportBatchRepository
 from app.repositories.user_repository import UserRepository
+from app.schemas.ai_chat_api_schema import (
+    ImportBatchSummaryItem,
+    ImportErrorSummaryItem,
+    ImportStatusResponse,
+)
 from app.schemas.import_schema import ImportCreatedSummary, ImportErrorItem, ImportResultResponse
 from app.services.assignment_service import AssignmentService
 from app.services.external_resource_service import ExternalResourceService
@@ -40,6 +45,47 @@ class ExcelImportService:
         if not batch:
             raise AppException("Import batch not found", status_code=404)
         return self.batch_repo.list_errors(batch_id)
+
+    def get_import_status(self, current_user: AppUser, recent_limit: int = 5) -> ImportStatusResponse:
+        _ = current_user
+        batch = self.batch_repo.get_latest_batch()
+        recent_batches = [
+            ImportBatchSummaryItem(
+                batch_id=item.id,
+                file_name=item.file_name,
+                status=item.status,
+                total_rows=item.total_rows,
+                successful_rows=item.successful_rows,
+                failed_rows=item.failed_rows,
+                created_at=item.created_at,
+            )
+            for item in self.batch_repo.list_recent_batches(recent_limit)
+        ]
+        if not batch:
+            return ImportStatusResponse(recent_batches=recent_batches)
+
+        errors = [
+            ImportErrorSummaryItem(
+                row_number=error.row_number,
+                column_name=error.column_name,
+                error_message=error.error_message,
+            )
+            for error in self.batch_repo.list_errors(batch.id)
+        ]
+        return ImportStatusResponse(
+            batch_id=batch.id,
+            file_name=batch.file_name,
+            status=batch.status,
+            total_rows=batch.total_rows,
+            successful_rows=batch.successful_rows,
+            failed_rows=batch.failed_rows,
+            created_at=batch.created_at,
+            errors=errors,
+            recent_batches=recent_batches,
+        )
+
+    def get_latest_import_status(self, current_user: AppUser) -> ImportStatusResponse:
+        return self.get_import_status(current_user)
 
     def import_historical_excel(
         self,

@@ -1,3 +1,4 @@
+from app.models.ai_chat_audit import AiChatAuditLog
 from app.models.external_resource import ExternalResource
 from app.models.import_batch import ImportBatch, ImportBatchError
 from app.models.initiative import Initiative
@@ -16,4 +17,5 @@ __all__ = [
     "PurchaseOrder",
     "ImportBatch",
     "ImportBatchError",
+    "AiChatAuditLog",
 ]

@@ -23,6 +23,7 @@ from app.schemas.assignment_schema import (
 )
 from app.utils.date_utils import days_to_end, expiration_alert, first_day_of_month, months_in_range
 from app.utils.money_utils import calculate_monthly_cost_usd, calculate_total_cost_usd
+from app.utils.permission_utils import assert_assignment_access
 
 
 class AssignmentService:
@@ -96,6 +97,35 @@ class AssignmentService:
         if alert:
             total = len(result)
         return result, total
+
+    def get_assignment_detail(self, assignment_id: UUID, current_user: AppUser) -> AssignmentListItem:
+        assignment = self.assignment_repo.get_by_id(assignment_id)
+        if not assignment:
+            raise AppException("Assignment not found", status_code=404)
+        assert_assignment_access(assignment, current_user)
+        return AssignmentListItem(
+            id=assignment.id,
+            consultant_name=assignment.resource.consultant_name,
+            technical_profile=assignment.resource.technical_profile,
+            provider_name=assignment.provider.name,
+            main_initiative_name=assignment.main_initiative.name,
+            manager_name=assignment.manager.full_name,
+            analyst_responsible_name=assignment.analyst_responsible.full_name
+            if assignment.analyst_responsible
+            else None,
+            start_date=assignment.start_date,
+            end_date=assignment.end_date,
+            duration_months=assignment.duration_months,
+            monthly_cost=assignment.monthly_cost,
+            currency=assignment.currency,
+            exchange_rate=assignment.exchange_rate,
+            monthly_cost_usd=assignment.monthly_cost_usd,
+            total_cost_usd=assignment.total_cost_usd,
+            status=assignment.status,
+            days_to_end=days_to_end(assignment.end_date),
+            expiration_alert=expiration_alert(assignment.end_date),
+            purchase_orders_count=len(assignment.purchase_orders),
+        )
 
     def _validate_allocations(self, payload: AssignmentCreateRequest) -> list[ResourceAssignmentInitiative]:
         allocations_data: list[InitiativeAllocationRequest] = payload.initiatives or [
@@ -175,11 +205,16 @@ class AssignmentService:
         )
 
     def generate_monthly_purchase_orders(
-        self, assignment_id: UUID, payload: GeneratePurchaseOrdersRequest
+        self,
+        assignment_id: UUID,
+        payload: GeneratePurchaseOrdersRequest,
+        current_user: AppUser | None = None,
     ) -> GeneratePurchaseOrdersResponse:
         assignment = self.assignment_repo.get_by_id(assignment_id)
         if not assignment:
             raise AppException("Assignment not found", status_code=404)
+        if current_user is not None:
+            assert_assignment_access(assignment, current_user)
 
         generated: list[GeneratedPurchaseOrderItem] = []
         skipped_count = 0

@@ -49,3 +49,21 @@ class PurchaseOrderCreateResponse(BaseModel):
     po_number: str | None
     status: str
     amount_usd: Decimal
+
+
+class PurchaseOrderStatusSummary(BaseModel):
+    total: int
+    pending: int
+    coupa_generated: int
+    sent: int
+    approved: int
+    closed: int
+    cancelled: int = 0
+
+
+class PurchaseOrdersStatusResponse(BaseModel):
+    items: list[PurchaseOrderResponse]
+    total: int
+    page: int
+    page_size: int
+    status_summary: PurchaseOrderStatusSummary

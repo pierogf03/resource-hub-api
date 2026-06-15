@@ -60,8 +60,8 @@ def generate_monthly_purchase_orders(
     assignment_id: UUID,
     payload: GeneratePurchaseOrdersRequest,
     db: Annotated[Session, Depends(get_db)],
-    _: Annotated[AppUser, Depends(get_current_user)],
+    current_user: Annotated[AppUser, Depends(get_current_user)],
 ):
-    result = AssignmentService(db).generate_monthly_purchase_orders(assignment_id, payload)
+    result = AssignmentService(db).generate_monthly_purchase_orders(assignment_id, payload, current_user)
     data = GeneratePurchaseOrdersResponse.model_validate(result).model_dump()
     return success_response("Monthly purchase orders generated successfully", data)

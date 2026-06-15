@@ -11,10 +11,13 @@ from app.schemas.purchase_order_schema import (
     PurchaseOrderCreateRequest,
     PurchaseOrderCreateResponse,
     PurchaseOrderResponse,
+    PurchaseOrdersStatusResponse,
+    PurchaseOrderStatusSummary,
     PurchaseOrderUpdateRequest,
 )
 from app.utils.date_utils import first_day_of_month
 from app.utils.money_utils import calculate_amount_usd
+from app.utils.permission_utils import assert_assignment_access
 
 
 class PurchaseOrderService:
@@ -40,10 +43,20 @@ class PurchaseOrderService:
         period_to,
         page: int,
         page_size: int,
+        search: str | None = None,
     ):
         manager_id, analyst_id = self._role_filters(current_user)
         items, total = self.po_repo.list_purchase_orders(
-            assignment_id, provider_id, status, period_from, period_to, manager_id, analyst_id, page, page_size
+            assignment_id,
+            provider_id,
+            status,
+            period_from,
+            period_to,
+            manager_id,
+            analyst_id,
+            search,
+            page,
+            page_size,
         )
         response_items = [
             PurchaseOrderResponse(
@@ -63,6 +76,57 @@ class PurchaseOrderService:
             for item in items
         ]
         return response_items, total
+
+    def get_purchase_orders_status(
+        self,
+        current_user: AppUser,
+        assignment_id: UUID | None,
+        provider_id: UUID | None,
+        status: str | None,
+        period_from,
+        period_to,
+        page: int,
+        page_size: int,
+        search: str | None = None,
+    ) -> PurchaseOrdersStatusResponse:
+        manager_id, analyst_id = self._role_filters(current_user)
+        items, total = self.list_purchase_orders(
+            current_user,
+            assignment_id,
+            provider_id,
+            status,
+            period_from,
+            period_to,
+            page,
+            page_size,
+            search,
+        )
+        scoped_items = self.po_repo.list_for_scope(
+            assignment_id,
+            provider_id,
+            status,
+            period_from,
+            period_to,
+            manager_id,
+            analyst_id,
+            search,
+        )
+        status_summary = PurchaseOrderStatusSummary(
+            total=len(scoped_items),
+            pending=sum(1 for po in scoped_items if po.status == "PENDING"),
+            coupa_generated=sum(1 for po in scoped_items if po.status == "COUPA_GENERATED"),
+            sent=sum(1 for po in scoped_items if po.status == "SENT"),
+            approved=sum(1 for po in scoped_items if po.status == "APPROVED"),
+            closed=sum(1 for po in scoped_items if po.status == "CLOSED"),
+            cancelled=sum(1 for po in scoped_items if po.status == "CANCELLED"),
+        )
+        return PurchaseOrdersStatusResponse(
+            items=items,
+            total=total,
+            page=page,
+            page_size=page_size,
+            status_summary=status_summary,
+        )
 
     def create_purchase_order(self, payload: PurchaseOrderCreateRequest) -> PurchaseOrderCreateResponse:
         assignment = self.assignment_repo.get_by_id(payload.assignment_id)
@@ -96,6 +160,32 @@ class PurchaseOrderService:
             status=created.status,
             amount_usd=created.amount_usd,
         )
+
+    def get_purchase_order_for_user(self, purchase_order_id: UUID, current_user: AppUser) -> PurchaseOrder:
+        purchase_order = self.po_repo.get_by_id(purchase_order_id)
+        if not purchase_order:
+            raise AppException("Purchase order not found", status_code=404)
+        assignment = self.assignment_repo.get_by_id(purchase_order.assignment_id)
+        if not assignment:
+            raise AppException("Assignment not found", status_code=404)
+        assert_assignment_access(assignment, current_user)
+        return purchase_order
+
+    def update_status(
+        self,
+        purchase_order_id: UUID,
+        status: str,
+        comments: str | None,
+        current_user: AppUser,
+        po_number: str | None = None,
+    ) -> PurchaseOrder:
+        purchase_order = self.get_purchase_order_for_user(purchase_order_id, current_user)
+        purchase_order.status = status
+        if comments is not None:
+            purchase_order.comments = comments
+        if po_number is not None:
+            purchase_order.po_number = po_number
+        return self.po_repo.update(purchase_order)
 
     def update_purchase_order(self, purchase_order_id: UUID, payload: PurchaseOrderUpdateRequest) -> PurchaseOrder:
         purchase_order = self.po_repo.get_by_id(purchase_order_id)

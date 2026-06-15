@@ -27,7 +27,4 @@ def expiring_resources(
     current_user: Annotated[AppUser, Depends(get_current_user)],
 ):
     items = DashboardService(db).get_expiring_resources(current_user)
-    return success_response(
-        "Expiring resources retrieved successfully",
-        [item.model_dump() for item in items],
-    )
+    return success_response("Expiring resources retrieved successfully", items.model_dump())

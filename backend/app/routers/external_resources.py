@@ -9,7 +9,7 @@ from app.models.user import AppUser
 from app.schemas.common_schema import success_response
 from app.schemas.external_resource_schema import ExternalResourceCreateRequest, ExternalResourceResponse
 from app.services.external_resource_service import ExternalResourceService
-
+from uuid import UUID
 router = APIRouter(prefix="/external-resources", tags=["External Resources"])
 
 
@@ -42,5 +42,16 @@ def create_external_resource(
     _: Annotated[AppUser, Depends(get_current_user)],
 ):
     resource = ExternalResourceService(db).create_resource(payload)
+    data = ExternalResourceResponse.model_validate(resource).model_dump()
+    return success_response("External resource created successfully", data)
+
+@router.put("/{resource_id}")
+def update_external_resource(
+    resource_id: UUID,
+    payload: ExternalResourceCreateRequest,
+    db: Annotated[Session, Depends(get_db)],
+    _: Annotated[AppUser, Depends(get_current_user)],
+):
+    resource = ExternalResourceService(db).update_resource(resource_id, payload)
     data = ExternalResourceResponse.model_validate(resource).model_dump()
     return success_response("External resource created successfully", data)

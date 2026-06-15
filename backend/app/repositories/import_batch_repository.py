@@ -42,3 +42,11 @@ class ImportBatchRepository:
         return self.db.scalars(
             select(ImportBatchError).where(ImportBatchError.batch_id == batch_id).order_by(ImportBatchError.row_number)
         ).all()
+
+    def get_latest_batch(self) -> ImportBatch | None:
+        return self.db.scalar(select(ImportBatch).order_by(ImportBatch.created_at.desc()).limit(1))
+
+    def list_recent_batches(self, limit: int = 5) -> list[ImportBatch]:
+        return list(
+            self.db.scalars(select(ImportBatch).order_by(ImportBatch.created_at.desc()).limit(limit)).all()
+        )

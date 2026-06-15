@@ -10,3 +10,4 @@ bcrypt
 python-multipart
 openpyxl
 python-dotenv
+httpx

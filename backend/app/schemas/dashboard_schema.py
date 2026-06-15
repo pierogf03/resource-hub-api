@@ -5,6 +5,20 @@ from uuid import UUID
 from pydantic import BaseModel
 
 
+class BudgetBreakdownItem(BaseModel):
+    name: str
+    monthly_cost_usd: Decimal
+    committed_cost_usd: Decimal
+
+
+class BudgetSummaryResponse(BaseModel):
+    total_monthly_cost_usd: Decimal
+    total_committed_cost_usd: Decimal
+    by_initiative: list[BudgetBreakdownItem] = []
+    by_provider: list[BudgetBreakdownItem] = []
+    by_manager: list[BudgetBreakdownItem] = []
+
+
 class PurchaseOrderStatusSummary(BaseModel):
     total: int
     pending: int
@@ -21,6 +35,7 @@ class ExpirationAlertSummary(BaseModel):
 
 
 class DashboardSummaryResponse(BaseModel):
+    total_assignments: int
     active_assignments: int
     expiring_soon: int
     expired: int
@@ -36,6 +51,18 @@ class ExpiringResourceItem(BaseModel):
     technical_profile: str
     provider_name: str
     main_initiative_name: str
+    manager_name: str
     end_date: date
     days_to_end: int
     expiration_alert: str
+    is_expired: bool
+    status: str
+
+
+class ExpiringResourcesResponse(BaseModel):
+    items: list[ExpiringResourceItem]
+    total: int
+    expired_count: int
+    red_count: int
+    amber_count: int
+    green_count: int

@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-
+from uuid import UUID
 from app.core.exceptions import AppException
 from app.models.external_resource import ExternalResource
 from app.repositories.external_resource_repository import ExternalResourceRepository
@@ -44,3 +44,13 @@ class ExternalResourceService:
             is_active=True,
         )
         return self.resource_repo.create(resource), True
+
+    def update_resource(self, resource_id: UUID, payload: ExternalResourceCreateRequest) -> ExternalResource:
+        resource = self.resource_repo.get_by_id(resource_id)
+        if not resource:
+            raise AppException("Resource not found")
+        resource.consultant_name = normalize_name(payload.consultant_name)
+        resource.technical_profile = normalize_name(payload.technical_profile)
+        resource.document_number = payload.document_number
+        resource.is_active = payload.is_active
+        return self.resource_repo.update(resource)

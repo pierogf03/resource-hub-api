@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.core.exceptions import register_exception_handlers
 from app.routers import (
+    ai_chat_api,
     assignments,
     auth,
     dashboard,
@@ -13,6 +14,7 @@ from app.routers import (
     providers,
     purchase_orders,
     users,
+    workato_internal,
 )
 
 settings = get_settings()
@@ -38,6 +40,8 @@ app.include_router(assignments.router)
 app.include_router(purchase_orders.router)
 app.include_router(dashboard.router)
 app.include_router(imports.router)
+app.include_router(ai_chat_api.router)
+app.include_router(workato_internal.router)
 
 
 @app.get("/health")

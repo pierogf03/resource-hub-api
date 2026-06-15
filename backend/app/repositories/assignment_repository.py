@@ -72,6 +72,7 @@ class AssignmentRepository:
             query = query.where(
                 or_(
                     func.lower(ExternalResource.consultant_name).like(pattern),
+                    func.lower(ExternalResource.technical_profile).like(pattern),
                     func.lower(Provider.name).like(pattern),
                     func.lower(Initiative.name).like(pattern),
                 )
@@ -92,7 +93,13 @@ class AssignmentRepository:
         return self.get_by_id(assignment.id)
 
     def list_for_dashboard(self, manager_id: UUID | None, analyst_id: UUID | None):
-        query = select(ResourceAssignment).options(joinedload(ResourceAssignment.purchase_orders))
+        query = select(ResourceAssignment).options(
+            joinedload(ResourceAssignment.purchase_orders),
+            joinedload(ResourceAssignment.resource),
+            joinedload(ResourceAssignment.provider),
+            joinedload(ResourceAssignment.main_initiative),
+            joinedload(ResourceAssignment.manager),
+        )
         if manager_id:
             query = query.where(ResourceAssignment.manager_id == manager_id)
         if analyst_id:

@@ -6,9 +6,12 @@ from app.models.user import AppUser
 from app.repositories.assignment_repository import AssignmentRepository
 from app.repositories.purchase_order_repository import PurchaseOrderRepository
 from app.schemas.dashboard_schema import (
+    BudgetBreakdownItem,
+    BudgetSummaryResponse,
     DashboardSummaryResponse,
     ExpirationAlertSummary,
     ExpiringResourceItem,
+    ExpiringResourcesResponse,
     PurchaseOrderStatusSummary,
 )
 from app.utils.date_utils import days_to_end, expiration_alert
@@ -27,9 +30,12 @@ class DashboardService:
             return current_user.id, None
         return None, current_user.id
 
-    def get_summary(self, current_user: AppUser) -> DashboardSummaryResponse:
+    def _scoped_assignments(self, current_user: AppUser):
         manager_id, analyst_id = self._scope_ids(current_user)
-        assignments = self.assignment_repo.list_for_dashboard(manager_id, analyst_id)
+        return self.assignment_repo.list_for_dashboard(manager_id, analyst_id)
+
+    def get_summary(self, current_user: AppUser) -> DashboardSummaryResponse:
+        assignments = self._scoped_assignments(current_user)
         active_assignments = [a for a in assignments if a.status == "ACTIVE"]
         expiring_soon = [a for a in active_assignments if 0 <= days_to_end(a.end_date) <= 30]
         expired = [a for a in active_assignments if days_to_end(a.end_date) < 0]
@@ -59,6 +65,7 @@ class DashboardService:
         total_committed = sum((a.total_cost_usd for a in active_assignments), Decimal("0"))
 
         return DashboardSummaryResponse(
+            total_assignments=len(assignments),
             active_assignments=len(active_assignments),
             expiring_soon=len(expiring_soon),
             expired=len(expired),
@@ -68,28 +75,111 @@ class DashboardService:
             expiration_alerts=alerts,
         )
 
-    def get_expiring_resources(self, current_user: AppUser) -> list[ExpiringResourceItem]:
-        manager_id, analyst_id = self._scope_ids(current_user)
-        assignments = self.assignment_repo.list_for_dashboard(manager_id, analyst_id)
+    def get_expiring_resources(
+        self,
+        current_user: AppUser,
+        alert: str | None = None,
+        days_threshold: int = 30,
+        include_expired: bool = True,
+    ) -> ExpiringResourcesResponse:
+        assignments = self._scoped_assignments(current_user)
         active_assignments = [a for a in assignments if a.status == "ACTIVE"]
         active_assignments.sort(key=lambda a: days_to_end(a.end_date))
-        result: list[ExpiringResourceItem] = []
+
+        items: list[ExpiringResourceItem] = []
+        expired_count = red_count = amber_count = green_count = 0
+
         for assignment in active_assignments:
-            if days_to_end(assignment.end_date) > 30:
-                continue
             assignment_full = self.assignment_repo.get_by_id(assignment.id)
             if not assignment_full:
                 continue
-            result.append(
+
+            remaining_days = days_to_end(assignment_full.end_date)
+            item_alert = expiration_alert(assignment_full.end_date)
+            is_expired = remaining_days < 0
+
+            if is_expired:
+                expired_count += 1
+            if item_alert == "RED":
+                red_count += 1
+            elif item_alert == "AMBER":
+                amber_count += 1
+            else:
+                green_count += 1
+
+            if not include_expired and is_expired:
+                continue
+            if alert and item_alert != alert.upper():
+                continue
+            if not is_expired and remaining_days > days_threshold:
+                continue
+
+            items.append(
                 ExpiringResourceItem(
                     assignment_id=assignment_full.id,
                     consultant_name=assignment_full.resource.consultant_name,
                     technical_profile=assignment_full.resource.technical_profile,
                     provider_name=assignment_full.provider.name,
                     main_initiative_name=assignment_full.main_initiative.name,
+                    manager_name=assignment_full.manager.full_name,
                     end_date=assignment_full.end_date,
-                    days_to_end=days_to_end(assignment_full.end_date),
-                    expiration_alert=expiration_alert(assignment_full.end_date),
+                    days_to_end=remaining_days,
+                    expiration_alert=item_alert,
+                    is_expired=is_expired,
+                    status=assignment_full.status,
                 )
             )
-        return result
+
+        return ExpiringResourcesResponse(
+            items=items,
+            total=len(items),
+            expired_count=expired_count,
+            red_count=red_count,
+            amber_count=amber_count,
+            green_count=green_count,
+        )
+
+    def get_budget_summary(self, current_user: AppUser) -> BudgetSummaryResponse:
+        assignments = self._scoped_assignments(current_user)
+        active_assignments = [a for a in assignments if a.status == "ACTIVE"]
+
+        by_initiative: dict[str, BudgetBreakdownItem] = {}
+        by_provider: dict[str, BudgetBreakdownItem] = {}
+        by_manager: dict[str, BudgetBreakdownItem] = {}
+
+        total_monthly = Decimal("0")
+        total_committed = Decimal("0")
+
+        for assignment in active_assignments:
+            full = self.assignment_repo.get_by_id(assignment.id)
+            if not full:
+                continue
+
+            total_monthly += full.monthly_cost_usd
+            total_committed += full.total_cost_usd
+
+            initiative_name = full.main_initiative.name
+            provider_name = full.provider.name
+            manager_name = full.manager.full_name
+
+            for bucket, name in (
+                (by_initiative, initiative_name),
+                (by_provider, provider_name),
+                (by_manager, manager_name),
+            ):
+                if name not in bucket:
+                    bucket[name] = BudgetBreakdownItem(
+                        name=name,
+                        monthly_cost_usd=Decimal("0"),
+                        committed_cost_usd=Decimal("0"),
+                    )
+                bucket[name].monthly_cost_usd += full.monthly_cost_usd
+                bucket[name].committed_cost_usd += full.total_cost_usd
+
+        return BudgetSummaryResponse(
+            total_monthly_cost_usd=total_monthly,
+            total_committed_cost_usd=total_committed,
+            by_initiative=sorted(by_initiative.values(), key=lambda item: item.name),
+            by_provider=sorted(by_provider.values(), key=lambda item: item.name),
+            by_manager=sorted(by_manager.values(), key=lambda item: item.name),
+        )
