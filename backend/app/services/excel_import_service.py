@@ -18,6 +18,7 @@ from app.schemas.ai_chat_api_schema import (
 )
 from app.schemas.import_schema import ImportCreatedSummary, ImportErrorItem, ImportResultResponse
 from app.services.assignment_service import AssignmentService
+from app.services.exchange_rate_service import resolve_pen_exchange_rate
 from app.services.external_resource_service import ExternalResourceService
 from app.services.initiative_service import InitiativeService
 from app.services.provider_service import ProviderService
@@ -219,12 +220,7 @@ class ExcelImportService:
         elif monthly_pen and monthly_pen > 0:
             currency = "PEN"
             monthly_cost = monthly_pen
-            exchange_rate = default_exchange_rate
-            if not exchange_rate or exchange_rate <= 0:
-                raise AppException(
-                    "Exchange rate is required for PEN currency",
-                    errors=[{"field": "Costo Mensual [PEN]", "message": "Exchange rate is required for PEN currency"}],
-                )
+            exchange_rate = resolve_pen_exchange_rate(default_exchange_rate)
         else:
             raise AppException("Monthly cost is required", errors=[{"field": "Costo Mensual [USD]", "message": "Cost required"}])
 

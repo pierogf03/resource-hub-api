@@ -8,6 +8,7 @@ from app.routers import (
     assignments,
     auth,
     dashboard,
+    exchange_rates,
     external_resources,
     imports,
     initiatives,
@@ -39,6 +40,7 @@ app.include_router(external_resources.router)
 app.include_router(assignments.router)
 app.include_router(purchase_orders.router)
 app.include_router(dashboard.router)
+app.include_router(exchange_rates.router)
 app.include_router(imports.router)
 app.include_router(ai_chat_api.router)
 app.include_router(workato_internal.router)

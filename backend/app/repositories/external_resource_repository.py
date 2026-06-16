@@ -52,3 +52,8 @@ class ExternalResourceRepository:
         self.db.commit()
         self.db.refresh(resource)
         return resource
+
+    def update(self, resource: ExternalResource) -> ExternalResource:
+        self.db.commit()
+        self.db.refresh(resource)
+        return resource

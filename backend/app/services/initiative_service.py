@@ -53,3 +53,19 @@ class InitiativeService:
             return existing, False
         initiative = Initiative(name=normalized_name, is_active=True)
         return self.initiative_repo.create(initiative), True
+
+    def update_initiative(self, initiative_id: UUID, payload: InitiativeCreateRequest) -> Initiative:
+        initiative = self.initiative_repo.get_by_id(initiative_id)
+        if not initiative:
+            raise AppException("Initiative not found")
+        initiative.name = normalize_name(payload.name)
+        existing = self.initiative_repo.get_by_name(initiative.name)
+        if existing and existing.id != initiative_id:
+            raise AppException(
+                "Initiative already exists",
+                errors=[{"field": "name", "message": "Initiative with this name already exists"}],
+            )
+        initiative.description = payload.description
+        initiative.responsible_manager_id = payload.responsible_manager_id
+        initiative.budget_usd = payload.budget_usd
+        return self.initiative_repo.update(initiative)

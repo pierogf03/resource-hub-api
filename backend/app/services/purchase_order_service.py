@@ -15,6 +15,7 @@ from app.schemas.purchase_order_schema import (
     PurchaseOrderStatusSummary,
     PurchaseOrderUpdateRequest,
 )
+from app.services.exchange_rate_service import resolve_pen_exchange_rate
 from app.utils.date_utils import first_day_of_month
 from app.utils.money_utils import calculate_amount_usd
 from app.utils.permission_utils import assert_assignment_access
@@ -138,7 +139,10 @@ class PurchaseOrderService:
         if self.assignment_repo.get_purchase_order_by_period(assignment.id, period_month):
             raise AppException("Purchase order already exists for this assignment and month")
 
-        amount_usd = calculate_amount_usd(payload.amount, payload.currency, payload.exchange_rate)
+        exchange_rate = (
+            resolve_pen_exchange_rate(payload.exchange_rate) if payload.currency == "PEN" else None
+        )
+        amount_usd = calculate_amount_usd(payload.amount, payload.currency, exchange_rate)
         purchase_order = PurchaseOrder(
             assignment_id=assignment.id,
             provider_id=assignment.provider_id,
@@ -147,7 +151,7 @@ class PurchaseOrderService:
             status=payload.status,
             amount=payload.amount,
             currency=payload.currency,
-            exchange_rate=payload.exchange_rate if payload.currency == "PEN" else None,
+            exchange_rate=exchange_rate,
             amount_usd=amount_usd,
             comments=payload.comments,
         )
@@ -191,11 +195,14 @@ class PurchaseOrderService:
         purchase_order = self.po_repo.get_by_id(purchase_order_id)
         if not purchase_order:
             raise AppException("Purchase order not found", status_code=404)
+        exchange_rate = (
+            resolve_pen_exchange_rate(payload.exchange_rate) if payload.currency == "PEN" else None
+        )
         purchase_order.po_number = payload.po_number
         purchase_order.status = payload.status
         purchase_order.amount = payload.amount
         purchase_order.currency = payload.currency
-        purchase_order.exchange_rate = payload.exchange_rate if payload.currency == "PEN" else None
-        purchase_order.amount_usd = calculate_amount_usd(payload.amount, payload.currency, payload.exchange_rate)
+        purchase_order.exchange_rate = exchange_rate
+        purchase_order.amount_usd = calculate_amount_usd(payload.amount, payload.currency, exchange_rate)
         purchase_order.comments = payload.comments
         return self.po_repo.update(purchase_order)

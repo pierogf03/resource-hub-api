@@ -44,3 +44,8 @@ class InitiativeRepository:
         self.db.commit()
         self.db.refresh(initiative)
         return initiative
+
+    def update(self, initiative: Initiative) -> Initiative:
+        self.db.commit()
+        self.db.refresh(initiative)
+        return initiative

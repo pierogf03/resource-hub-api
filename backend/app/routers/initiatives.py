@@ -45,3 +45,15 @@ def create_initiative(
     initiative = InitiativeService(db).create_initiative(payload)
     data = InitiativeResponse.model_validate(initiative).model_dump()
     return success_response("Initiative created successfully", data)
+
+
+@router.put("/{initiative_id}")
+def update_initiative(
+    initiative_id: UUID,
+    payload: InitiativeCreateRequest,
+    db: Annotated[Session, Depends(get_db)],
+    _: Annotated[AppUser, Depends(get_current_user)],
+):
+    initiative = InitiativeService(db).update_initiative(initiative_id, payload)
+    data = InitiativeResponse.model_validate(initiative).model_dump()
+    return success_response("Initiative updated successfully", data)

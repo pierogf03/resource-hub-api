@@ -21,6 +21,7 @@ from app.schemas.assignment_schema import (
     GeneratedPurchaseOrderItem,
     InitiativeAllocationRequest,
 )
+from app.services.exchange_rate_service import resolve_pen_exchange_rate
 from app.utils.date_utils import days_to_end, expiration_alert, first_day_of_month, months_in_range
 from app.utils.money_utils import calculate_monthly_cost_usd, calculate_total_cost_usd
 from app.utils.permission_utils import assert_assignment_access
@@ -174,7 +175,10 @@ class AssignmentService:
         if payload.analyst_responsible_id and not self.user_repo.get_by_id(payload.analyst_responsible_id):
             raise AppException("Analyst responsible not found", status_code=404)
 
-        monthly_cost_usd = calculate_monthly_cost_usd(payload.monthly_cost, payload.currency, payload.exchange_rate)
+        exchange_rate = (
+            resolve_pen_exchange_rate(payload.exchange_rate) if payload.currency == "PEN" else None
+        )
+        monthly_cost_usd = calculate_monthly_cost_usd(payload.monthly_cost, payload.currency, exchange_rate)
         total_cost_usd = calculate_total_cost_usd(monthly_cost_usd, payload.duration_months)
         allocations = self._validate_allocations(payload)
 
@@ -189,7 +193,7 @@ class AssignmentService:
             duration_months=payload.duration_months,
             monthly_cost=payload.monthly_cost,
             currency=payload.currency,
-            exchange_rate=payload.exchange_rate if payload.currency == "PEN" else None,
+            exchange_rate=exchange_rate,
             monthly_cost_usd=monthly_cost_usd,
             total_cost_usd=total_cost_usd,
             status="ACTIVE",
