@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     WORKATO_INTERNAL_API_KEY: str = ""
     AI_CHAT_ENABLED: bool = True
     AI_CHAT_AUDIT_ENABLED: bool = True
-    AI_CHAT_TIMEOUT_SECONDS: int = 60
+    AI_CHAT_TIMEOUT_SECONDS: int = 360
     AI_CHAT_MAX_MESSAGE_LENGTH: int = 4000
 
     @property
