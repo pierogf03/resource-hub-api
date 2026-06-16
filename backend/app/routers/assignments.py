@@ -12,6 +12,8 @@ from app.schemas.assignment_schema import (
     AssignmentCreateResponse,
     GeneratePurchaseOrdersRequest,
     GeneratePurchaseOrdersResponse,
+    AssignmentUpdateRequest,
+    AssignmentResponse,
 )
 from app.schemas.common_schema import success_response
 from app.services.assignment_service import AssignmentService
@@ -65,3 +67,14 @@ def generate_monthly_purchase_orders(
     result = AssignmentService(db).generate_monthly_purchase_orders(assignment_id, payload, current_user)
     data = GeneratePurchaseOrdersResponse.model_validate(result).model_dump()
     return success_response("Monthly purchase orders generated successfully", data)
+
+@router.put("/{assignment_id}")
+def update_assignment(
+    assignment_id: UUID,
+    payload: AssignmentUpdateRequest,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[AppUser, Depends(get_current_user)],
+):
+    assignment = AssignmentService(db).update_assignment(assignment_id, payload)
+    data = AssignmentResponse.model_validate(assignment).model_dump()
+    return success_response("Assignment updated successfully", data)

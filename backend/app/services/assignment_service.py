@@ -20,6 +20,8 @@ from app.schemas.assignment_schema import (
     GeneratePurchaseOrdersResponse,
     GeneratedPurchaseOrderItem,
     InitiativeAllocationRequest,
+    AssignmentUpdateRequest,
+    AssignmentResponse,
 )
 from app.services.exchange_rate_service import resolve_pen_exchange_rate
 from app.utils.date_utils import days_to_end, expiration_alert, first_day_of_month, months_in_range
@@ -261,4 +263,29 @@ class AssignmentService:
             generated_count=len(generated),
             skipped_count=skipped_count,
             items=generated,
+        )
+
+    def update_assignment(self, assignment_id: UUID, payload: AssignmentUpdateRequest) -> AssignmentResponse:
+        assignment = self.assignment_repo.get_by_id(assignment_id)
+        if not assignment:
+            raise AppException("Assignment not found", status_code=404)
+        assignment.resource_id = payload.resource_id
+        assignment.provider_id = payload.provider_id
+        assignment.main_initiative_id = payload.main_initiative_id
+        assignment.manager_id = payload.manager_id
+        assignment.analyst_responsible_id = payload.analyst_responsible_id
+        assignment.start_date = payload.start_date
+        assignment.end_date = payload.end_date
+        assignment.duration_months = payload.duration_months
+        assignment.monthly_cost = payload.monthly_cost
+        assignment.currency = payload.currency
+        assignment.exchange_rate = payload.exchange_rate
+        assignment.comments = payload.comments
+        self.assignment_repo.update(assignment)
+        return AssignmentResponse(
+            id=assignment.id,
+            resource_id=assignment.resource_id,   
+            monthly_cost_usd=assignment.monthly_cost_usd,
+            total_cost_usd=assignment.total_cost_usd,
+            status=assignment.status,
         )
