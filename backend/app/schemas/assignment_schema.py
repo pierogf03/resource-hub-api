@@ -82,3 +82,24 @@ class GeneratePurchaseOrdersResponse(BaseModel):
     generated_count: int
     skipped_count: int
     items: list[GeneratedPurchaseOrderItem]
+
+class AssignmentUpdateRequest(BaseModel):
+    resource_id: UUID | None = None
+    provider_id: UUID | None = None
+    main_initiative_id: UUID | None = None
+    manager_id: UUID | None = None
+    analyst_responsible_id: UUID | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    duration_months: int | None = None
+    monthly_cost: Decimal | None = None
+    currency: str | None = None
+    exchange_rate: Decimal | None = None
+    comments: str | None = None
+
+class AssignmentResponse(BaseModel):
+    id: UUID
+    resource_id: UUID
+    monthly_cost_usd: Decimal
+    total_cost_usd: Decimal
+    status: str

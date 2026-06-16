@@ -118,3 +118,8 @@ class AssignmentRepository:
                 PurchaseOrder.period_month == period_month,
             )
         )
+
+    def update(self, assignment: ResourceAssignment) -> ResourceAssignment:
+        self.db.commit()
+        self.db.refresh(assignment)
+        return assignment
